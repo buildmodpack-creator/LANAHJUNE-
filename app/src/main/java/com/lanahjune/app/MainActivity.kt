@@ -20,6 +20,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.net.HttpURLConnection
+import java.net.URL
+import org.json.JSONObject
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 private val PastelBg = Color(0xFFFFF7FB)
 private val PastelCard = Color(0xFFFFFFFF)
 private val PastelAccent = Color(0xFFE7A8C7)
@@ -40,6 +47,11 @@ fun LanahJuneApp() {
     var section by remember { mutableStateOf("MOD") }
     var prompt by remember { mutableStateOf("") }
     var showSettings by remember { mutableStateOf(false) }
+    var apiKey by remember { mutableStateOf("") }
+    var answer by remember { mutableStateOf("") }
+    var loading by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
     val dark = theme == "Minecraft"
     val bg = if (dark) McBg else PastelBg
     val card = if (dark) McCard else PastelCard
@@ -96,13 +108,33 @@ fun LanahJuneApp() {
                         )
                         Spacer(Modifier.height(10.dp))
                         Button(
-                            onClick = { /* Backend connection will be added in the next milestone. */ },
+                            onClick = {
+                                if (prompt.isBlank()) {
+                                    error = "Hãy nhập mô tả ý tưởng trước."
+                                } else if (apiKey.isBlank()) {
+                                    error = "Hãy nhập Unified API Key trong Cài đặt."
+                                } else if (!loading) {
+                                    scope.launch {
+                                        loading = true
+                                        error = ""
+                                        answer = ""
+                                        try {
+                                            answer = AiClient.ask("Bạn là AI chuyên tạo Minecraft ${section}. Hãy phân tích ý tưởng sau bằng tiếng Việt, đề xuất phiên bản, loader, cấu trúc dự án và các bước triển khai: $prompt", apiKey.trim())
+                                        } catch (e: Exception) {
+                                            error = e.message ?: "Không thể kết nối AI."
+                                        } finally {
+                                            loading = false
+                                        }
+                                    }
+                                }
+                            },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(containerColor = accent)
                         ) {
                             Icon(Icons.Default.AutoAwesome, null)
                             Spacer(Modifier.width(8.dp))
                             Text("TẠO Ý TƯỞNG", color = if (dark) Color.Black else Color(0xFF392D36))
+
                         }
                     }
                 }
@@ -115,10 +147,26 @@ fun LanahJuneApp() {
                     shape = RoundedCornerShape(20.dp)
                 ) {
                     Column(Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                        Icon(Icons.Default.ViewInAr, null, tint = accent, modifier = Modifier.size(48.dp))
-                        Spacer(Modifier.height(8.dp))
-                        Text("Khung xem trước", fontWeight = FontWeight.Bold, color = fg)
-                        Text("Ảnh, video, model 3D và file dự án sẽ xuất hiện tại đây khi các mô-đun được kết nối.", color = muted, fontSize = 12.sp)
+                        if (loading) {
+                            CircularProgressIndicator(color = accent)
+                            Spacer(Modifier.height(8.dp))
+                            Text("AI đang phân tích...", color = fg)
+                        } else if (error.isNotBlank()) {
+                            Text("LỖI KẾT NỐI", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                            Spacer(Modifier.height(8.dp))
+                            Text(error, color = MaterialTheme.colorScheme.error)
+                        } else if (answer.isNotBlank()) {
+                            Text("KẾT QUẢ AI", fontWeight = FontWeight.Bold, color = fg)
+                            Spacer(Modifier.height(8.dp))
+                            LazyColumn(Modifier.fillMaxSize()) {
+                                item { Text(answer, color = fg) }
+                            }
+                        } else {
+                            Icon(Icons.Default.ViewInAr, null, tint = accent, modifier = Modifier.size(48.dp))
+                            Spacer(Modifier.height(8.dp))
+                            Text("Khung xem trước", fontWeight = FontWeight.Bold, color = fg)
+                            Text("Ảnh, video, model 3D và file dự án sẽ xuất hiện tại đây khi các mô-đun được kết nối.", color = muted, fontSize = 12.sp)
+                        }
                     }
                 }
                 Spacer(Modifier.height(10.dp))
@@ -131,6 +179,15 @@ fun LanahJuneApp() {
                     title = { Text("Giao diện LANAHJUNE") },
                     text = {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Kết nối AI · FreeLLMAPI")
+                    OutlinedTextField(
+                        value = apiKey,
+                        onValueChange = { apiKey = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Unified API Key") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        singleLine = true
+                    )
                             listOf("Pastel", "Minecraft").forEach { choice ->
                                 Row(
                                     Modifier.fillMaxWidth().clickable { theme = choice },

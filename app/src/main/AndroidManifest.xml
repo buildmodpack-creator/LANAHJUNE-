@@ -2,7 +2,7 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <application
+    <application android:usesCleartextTraffic="true"
         android:allowBackup="true"
         android:label="LANAHJUNE"
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
